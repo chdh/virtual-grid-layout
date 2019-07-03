@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+ <link rel="stylesheet" href="app.css">
+ <script src="app.js"></script>
+ <title>Virtual Grid Layout Controller Demo</title>
+</head>
+<body>
+
+<h1>Virtual Grid Layout Controller Demo</h1>
+
+<script>
+ if (!("customElements" in window) || !("attachShadow" in HTMLElement.prototype)) {
+    document.write('<p style="color: red; font-size: 20px; font-weight: bold;">Sorry, your web browser is outdated and cannot run this application!</p>'); }
+</script>
+
+<div id="gridContainer">
+ <div id="gridRoot"></div>
+ <plain-scrollbar id="verticalGridScrollbar" orientation="vertical"></plain-scrollbar>
+ <plain-scrollbar id="horizontalGridScrollbar" orientation="horizontal"></plain-scrollbar>
+</div>
+
+<div class="footer">
+ Source code: &nbsp;<a href="https://github.com/chdh/virtual-grid-layout">Github</a>
+</div>
+
+</body>
+</html>

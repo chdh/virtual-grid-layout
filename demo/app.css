@@ -1,0 +1,61 @@
+body {
+   font-family: Arial, sans-serif;
+   font-size: 14px;
+   margin: 20px; }
+
+h1 {
+   font-size: 18px; }
+
+#gridContainer {
+   position: relative;
+   box-sizing: border-box;
+   width: 1200px;
+   height: 800px;
+   border: 1px solid yellow; }
+
+#gridRoot {
+   box-sizing: border-box;
+   position: absolute;
+   overflow: hidden;
+   left: 0;
+   top: 0;
+   right: 15px;
+   bottom: 15px;
+   border: 1px solid blue; }
+
+#verticalGridScrollbar {
+   display: block;
+   box-sizing: border-box;
+   position: absolute;
+   right: 0;
+   top: 0;
+   bottom: 15px;
+   width: 15px; }
+
+#horizontalGridScrollbar {
+   display: block;
+   box-sizing: border-box;
+   position: absolute;
+   left: 0;
+   bottom: 0;
+   right: 15px;
+   height: 15px; }
+
+.gridCell {
+   position: absolute;
+   box-sizing: border-box;
+   overflow: hidden;
+   padding: 4px;
+   border-right: 1px solid red;
+   border-bottom: 1px solid green; }
+
+.macroCell {
+   position: absolute;
+   box-sizing: border-box;
+   overflow: hidden;
+   padding: 4px;
+   border-bottom: 1px solid green;
+   background-color: #FFFFEE; }
+
+.footer {
+   margin-top: 15px; }

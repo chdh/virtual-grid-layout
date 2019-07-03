@@ -1,0 +1,25 @@
+{
+   "name": "virtual-grid-layout",
+   "version": "0.1.0",
+   "description": "A virtual grid layout controller for HTML/DOM",
+   "license": "MIT",
+   "repository": "github:chdh/virtual-grid-layout",
+   "type": "module",
+   "contributors": [
+      {
+         "name": "Christian d'Heureuse",
+         "email": "chdh@inventec.ch",
+         "url": "http://www.source-code.biz"
+      }
+   ],
+   "scripts": {
+      "clean": "node build.js clean",
+      "build": "node build.js build",
+      "prepack": "node build.js verifyCurrentDirIsDist",
+      "doPack": "cd dist && npm pack",
+      "doPublish": "cd dist && npm publish"
+   },
+   "devDependencies": {
+      "rimraf": "^2.6.3"
+   }
+}
