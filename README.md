@@ -15,4 +15,5 @@ Features:
 * User interaction is also done in the higher application layers.
   The Layout Controller's purpose is limited to controlling the virtual layout by rendering the visible grid cells.
 
-**Online demo**: [www.source-code.biz/snippets/typescript/virtualGridLayout](http://www.source-code.biz/snippets/typescript/virtualGridLayout)
+**Online demo**: [www.source-code.biz/snippets/typescript/virtualGridLayout](http://www.source-code.biz/snippets/typescript/virtualGridLayout)<br>
+**NPM package**: [virtual-grid-layout](https://www.npmjs.com/package/virtual-grid-layout)
