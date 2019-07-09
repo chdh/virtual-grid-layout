@@ -30,7 +30,8 @@ h1 {
    right: 0;
    top: 0;
    bottom: 15px;
-   width: 15px; }
+   width: 15px;
+   --plain-scrollbar-thumb-min-size: 30px; }
 
 #horizontalGridScrollbar {
    display: block;
@@ -39,7 +40,8 @@ h1 {
    left: 0;
    bottom: 0;
    right: 15px;
-   height: 15px; }
+   height: 15px;
+   --plain-scrollbar-thumb-min-size: 30px; }
 
 .gridCell {
    position: absolute;

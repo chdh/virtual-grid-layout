@@ -15,24 +15,24 @@ export interface Rect {
 export interface ViewportPosition {
    rowNdx:                   number;                       // index of first visible row, 0-based integer
    colNdx:                   number;                       // index of first visible column, 0-based integer
-   rowPixelOffset:           number;                       // vertical pixel offset within first visible row, integer in range 0 .. rowHeight-1
-   colPixelOffset:           number; }                     // horizontal pixel offset within first visible column, integer in range 0 .. colWidth-1
+   rowPixelOffset:           number;                       // vertical pixel offset within first visible row, integer in range 0..rowHeight-1
+   colPixelOffset:           number; }                     // horizontal pixel offset within first visible column, integer in range 0..colWidth-1
+
+export interface MeasureResult {
+   sizes:                    Int16Array;                   // row heights or column widths in pixels
+   macroSizes?:              Int16Array;                   // optional macro cell heights, or 0 where there are no macro cell. Currently only used for vertical measurment
+   distance:                 number; }                     // effective distance in pixels, same as the sum of the entries in the `sizes` array
 
 // Function to measure row heights or column widths.
 //
 // @param startNdx
 //    Row or column index to start the measurement.
-// @param orientation
-//    false=horizontal (measure column widths), true=vertical (measure row heights)
 // @distance
 //    The distance to cover, in pixels.
 //    If `distance` extends beyond the edge of the grid, only array entries up to the edge are returned.
-// @returns
-//    An array with row heights or column widths in pixels.
-//    For vertical measurement, two arrays can be returned.
-//    The first array contains the overall row heights.
-//    The optional second array contains the hights of macro cells, or 0 where there are no macro cell.
-export type MeasureFunction = (startNdx: number, orientation: boolean, distance: number) => Int16Array | Int16Array[];
+// @param orientation
+//    false=horizontal (measure column widths), true=vertical (measure row heights)
+export type MeasureFunction = (startNdx: number, distance: number, orientation: boolean) => MeasureResult;
 
 // Function to creates and/or prepare a cell element.
 //
@@ -73,7 +73,7 @@ interface RenderState extends RenderParms {
 
 export class Controller {
 
-   private rootElement:      HTMLElement;                  // root HTML element of the grid
+   private rootElement:      HTMLElement;                  // root HTML element of the grid (viewport into virtual grid)
    private regularCells?:    CellRectMap;                  // regular cells currently in use
    private macroCells?:      CellRectMap;                  // macro cells currently in use
 
@@ -97,16 +97,13 @@ export class Controller {
       const pos = rs.viewportPosition;
       if (pos.rowNdx < 0 || pos.colNdx < 0 || !Number.isInteger(pos.rowNdx) || !Number.isInteger(pos.colNdx) || pos.rowPixelOffset < 0 || pos.colPixelOffset < 0) {
          throw new Error("Invalid viewport position."); }
-      const rowHeights2 = rs.measure(pos.rowNdx, true,  pos.rowPixelOffset + rs.viewportHeight);
-      if (rowHeights2 instanceof Int16Array) {
-         rs.rowHeights = rowHeights2;
-         rs.macroCellHeights = undefined; }
-       else {
-         rs.rowHeights = rowHeights2[0];
-         rs.macroCellHeights = rowHeights2[1];
-         if (rs.macroCellHeights && rs.macroCellHeights.length != rs.rowHeights.length) {
-            throw new Error("Lenghts of height arrays are not equal."); }}
-      rs.colWidths = <Int16Array>rs.measure(pos.colNdx, false, pos.colPixelOffset + rs.viewportWidth);
+      const r1 = rs.measure(pos.rowNdx, pos.rowPixelOffset + rs.viewportHeight, true);
+      rs.rowHeights = r1.sizes;
+      rs.macroCellHeights = r1.macroSizes;
+      if (rs.macroCellHeights && rs.macroCellHeights.length != rs.rowHeights.length) {
+         throw new Error("Lenghts of height arrays are not equal."); }
+      const r2 = rs.measure(pos.colNdx, pos.colPixelOffset + rs.viewportWidth, false);
+      rs.colWidths = r2.sizes;
       rs.viewportRows = rs.rowHeights.length;
       rs.viewportCols = rs.colWidths.length;
       if (rs.viewportRows > 0 && pos.rowPixelOffset > 0 && pos.rowPixelOffset >= rs.rowHeights[0]) {
