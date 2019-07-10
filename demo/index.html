@@ -1,20 +1,48 @@
 <!DOCTYPE html>
 <html>
 <head>
+ <link href="https://fonts.googleapis.com/css?family=Lato" rel="stylesheet">
  <link rel="stylesheet" href="app.css">
  <script src="app.js"></script>
  <title>Virtual Grid Layout Controller Demo</title>
 </head>
 <body>
 
-<h1>Virtual Grid Layout Controller Demo</h1>
-
 <script>
  if (!("customElements" in window) || !("attachShadow" in HTMLElement.prototype)) {
     document.write('<p style="color: red; font-size: 20px; font-weight: bold;">Sorry, your web browser is outdated and cannot run this application!</p>'); }
 </script>
 
-<div id="gridContainer">
+<h1>Virtual Grid Layout Controller Demo</h1>
+
+<div class="parmBlock" id="appParms">
+ <div class="parmLine">
+  <label class="width1" for="rowCount">Row count:</label>
+  <input class="width2" id="rowCount" type="number" min="0" required value="10000">
+  <label class="width1 gap1" for="rowHeightLo">Row height:</label>
+  <input class="width2" id="rowHeightLo" type="number" min="0" required value="25">
+  <label class="to">-</label>
+  <input class="width2" id="rowHeightHi" type="number" min="0" required value="125">
+ </div>
+ <div class="parmLine">
+  <label class="width1" for="colCount">Column count:</label>
+  <input class="width2" id="colCount" type="number" min="0" required value="10000">
+  <label class="width1 gap1" for="colWidthLo">Column width:</label>
+  <input class="width2" id="colWidthLo" type="number" min="0" required value="40">
+  <label class="to">-</label>
+  <input class="width2" id="colWidthHi" type="number" min="0" required value="240">
+ </div>
+ <div class="parmLine">
+  <label class="width1" for="macroCellRate">Macro cell rate:</label>
+  <input class="width2" id="macroCellRate" type="number" min="0" max="1" step="any" required value="0.25">
+  <label class="width1 gap1" for="macroCellHeightLo">Macro cell height:</label>
+  <input class="width2" id="macroCellHeightLo" type="number" min="0" required value="25">
+  <label class="to">-</label>
+  <input class="width2" id="macroCellHeightHi" type="number" min="0" required value="125">
+ </div>
+</div>
+
+<div id="gridContainer" tabindex="0">
  <div id="gridRoot"></div>
  <plain-scrollbar id="verticalGridScrollbar" orientation="vertical"></plain-scrollbar>
  <plain-scrollbar id="horizontalGridScrollbar" orientation="horizontal"></plain-scrollbar>

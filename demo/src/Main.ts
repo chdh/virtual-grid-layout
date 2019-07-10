@@ -6,11 +6,22 @@ import * as GridScroll from "virtual-grid-layout/GridScroll";
 import {ScrollUnit} from "virtual-grid-layout/GridScroll";
 import * as PlainScrollbar from "plain-scrollbar";
 import {PlainScrollbar as Scrollbar} from "plain-scrollbar";
+import * as Utils from "./Utils";
 
-const rowCount               = 10000;
-const colCount               = 1000;
+interface AppParms {
+   rowCount:                 number;
+   rowHeightLo:              number;
+   rowHeightHi:              number;
+   colCount:                 number;
+   colWidthLo:               number;
+   colWidthHi:               number;
+   macroCellRate:            number;
+   macroCellHeightLo:        number;
+   macroCellHeightHi:        number; }
+
 const topLeftPosition:       ViewportPosition = {rowNdx: 0, colNdx: 0, rowPixelOffset: 0, colPixelOffset: 0};
 
+var appParms:                AppParms;
 var controller:              GridLayout.Controller;
 var gridRootElement:         HTMLElement;
 var vScrollbar:              Scrollbar;
@@ -19,6 +30,32 @@ var viewportPosition:        ViewportPosition;
 var rowHeights:              Int16Array;
 var colWidths:               Int16Array;
 var macroCellHeights:        Int16Array;
+
+function getAppParms() {
+   const ap = <AppParms>{};
+   ap.rowCount          = Utils.getInputElementValueNum("rowCount");
+   ap.rowHeightLo       = Utils.getInputElementValueNum("rowHeightLo");
+   ap.rowHeightHi       = Utils.getInputElementValueNum("rowHeightHi");
+   ap.colCount          = Utils.getInputElementValueNum("colCount");
+   ap.colWidthLo        = Utils.getInputElementValueNum("colWidthLo");
+   ap.colWidthHi        = Utils.getInputElementValueNum("colWidthHi");
+   ap.macroCellRate     = Utils.getInputElementValueNum("macroCellRate");
+   ap.macroCellHeightLo = Utils.getInputElementValueNum("macroCellHeightLo");
+   ap.macroCellHeightHi = Utils.getInputElementValueNum("macroCellHeightHi");
+   appParms = ap; }
+
+function randomSize (lo: number, hi: number) : number {
+   return Math.round(lo + Math.max(0, (hi - lo)) * Math.random()); }
+
+function buildGridData() {
+   rowHeights = new Int16Array(appParms.rowCount);
+   macroCellHeights = new Int16Array(appParms.rowCount);
+   for (let rowNdx = 0; rowNdx < appParms.rowCount; rowNdx++) {
+      macroCellHeights[rowNdx] = Math.random() < appParms.macroCellRate ? randomSize(appParms.macroCellHeightLo, appParms.macroCellHeightHi) : 0;
+      rowHeights[rowNdx] = macroCellHeights[rowNdx] + randomSize(appParms.rowHeightLo, appParms.rowHeightHi); }
+   colWidths = new Int16Array(appParms.colCount);
+   for (let colNdx = 0; colNdx < appParms.colCount; colNdx++) {
+      colWidths[colNdx] = randomSize(appParms.colWidthLo, appParms.colWidthHi); }}
 
 function getCellColor (rowNdx: number, colNdx: number) : string {
    const colorMin = 235 - (rowNdx % 5) * 5;
@@ -98,7 +135,7 @@ function scroll (scrollbar: Scrollbar, scrollUnit: ScrollUnit, scrollValue: numb
       scrollUnit,
       scrollValue,
       topNdx:       orientation ? viewportPosition.rowNdx : viewportPosition.colNdx,
-      elementCount: orientation ? rowCount : colCount,
+      elementCount: orientation ? appParms.rowCount : appParms.colCount,
       viewportSize: orientation ? gridRootElement.clientHeight : gridRootElement.clientWidth,
       measure: (startNdx: number, distance: number) => measure(startNdx, distance, orientation) };
    const r = GridScroll.process(ip);
@@ -109,60 +146,110 @@ function scroll (scrollbar: Scrollbar, scrollUnit: ScrollUnit, scrollValue: numb
    scrollbar.value = r.scrollbarPosition;
    scrollbar.thumbSize = r.scrollbarThumbSize; }
 
-function scrollbarInputEventHandler (this: Scrollbar, event: CustomEvent) {
+function scrollAndRender (scrollbar: Scrollbar, scrollUnit: ScrollUnit, scrollValue: number) {
+   scroll(scrollbar, scrollUnit, scrollValue);
+   renderGrid(); }
+
+function scrollbar_input (this: Scrollbar, event: CustomEvent) {
    const scrollbar = this;
    // console.log("Scrollbar event " + event.detail + " " + scrollbar.value + " " + scrollbar.orientationBoolean);
    switch (event.detail) {
       case "value": {
-         scroll(scrollbar, ScrollUnit.propPosition, scrollbar.value);
+         scrollAndRender(scrollbar, ScrollUnit.propPosition, scrollbar.value);
          break; }
       case "decrementSmall": {
-         scroll(scrollbar, ScrollUnit.smallIncr, -1);
+         scrollAndRender(scrollbar, ScrollUnit.smallIncr, -1);
          break; }
       case "incrementSmall": {
-         scroll(scrollbar, ScrollUnit.smallIncr, 1);
+         scrollAndRender(scrollbar, ScrollUnit.smallIncr, 1);
          break; }
       case "decrementLarge": {
-         scroll(scrollbar, ScrollUnit.largeIncr, -1);
+         scrollAndRender(scrollbar, ScrollUnit.largeIncr, -1);
          break; }
       case "incrementLarge": {
-         scroll(scrollbar, ScrollUnit.largeIncr, 1);
-         break; }}
+         scrollAndRender(scrollbar, ScrollUnit.largeIncr, 1);
+         break; }}}
+
+function container_wheel (event: WheelEvent) {
+   scrollAndRender(vScrollbar, ScrollUnit.mediumIncr, Math.sign(event.deltaY));
+   event.stopPropagation();
+   event.preventDefault(); }
+
+function processKey (event: KeyboardEvent) {
+   const keyName = Utils.genKeyName(event);
+   switch (keyName) {
+      case "PageDown": {
+         scrollAndRender(vScrollbar, ScrollUnit.largeIncr, 1);
+         return true; }
+      case "PageUp": {
+         scrollAndRender(vScrollbar, ScrollUnit.largeIncr, -1);
+         return true; }
+      case "ArrowDown": {
+         scrollAndRender(vScrollbar, ScrollUnit.smallIncr, 1);
+         return true; }
+      case "ArrowUp": {
+         scrollAndRender(vScrollbar, ScrollUnit.smallIncr, -1);
+         return true; }
+      case "ArrowRight": {
+         scrollAndRender(hScrollbar, ScrollUnit.smallIncr, 1);
+         return true; }
+      case "ArrowLeft": {
+         scrollAndRender(hScrollbar, ScrollUnit.smallIncr, -1);
+         return true; }
+      case "Home": {
+         scrollAndRender(hScrollbar, ScrollUnit.propPosition, 0);
+         return true; }
+      case "End": {
+         scrollAndRender(hScrollbar, ScrollUnit.propPosition, 1);
+         return true; }
+      case "Ctrl-Home": {
+         scrollAndRender(vScrollbar, ScrollUnit.propPosition, 0);
+         return true; }
+      case "Ctrl-End": {
+         scrollAndRender(vScrollbar, ScrollUnit.propPosition, 1);
+         return true; }
+      default: {
+         return false; }}}
+
+function container_keydown (event: KeyboardEvent) {
+   if (processKey(event)) {
+      event.stopPropagation();
+      event.preventDefault(); }}
+
+function processAppParms() {
+   getAppParms();
+   buildGridData();
+   scroll(vScrollbar, ScrollUnit.absPosition, 0);
+   scroll(hScrollbar, ScrollUnit.absPosition, 0);
    renderGrid(); }
 
-function mouseWheelEventHandler (event: WheelEvent) {
-   scroll(vScrollbar, ScrollUnit.mediumIncr, Math.sign(event.deltaY));
-   renderGrid(); }
+function appParms_change() {
+   try {
+      processAppParms(); }
+    catch (e) {
+      alert(e); }}
 
 function init() {
-   rowHeights = new Int16Array(rowCount);
-   macroCellHeights = new Int16Array(rowCount);
-   for (let rowNdx = 0; rowNdx < rowCount; rowNdx++) {
-      macroCellHeights[rowNdx] = Math.random() < 0.25 ? Math.round(30 + 100 * Math.random()) : 0;
-      rowHeights[rowNdx] = macroCellHeights[rowNdx] + Math.round(25 + 100 * Math.random()); }
-   colWidths = new Int16Array(colCount);
-   for (let colNdx = 0; colNdx < colCount; colNdx++) {
-      colWidths[colNdx] = Math.round(40 + 200 * Math.random()); }
-   //
    gridRootElement = document.getElementById("gridRoot")!;
    controller = new GridLayout.Controller(gridRootElement);
    PlainScrollbar.registerCustomElement();
    vScrollbar = <any>document.getElementById("verticalGridScrollbar");
-   vScrollbar.addEventListener("scrollbar-input", <any>scrollbarInputEventHandler);
+   vScrollbar.addEventListener("scrollbar-input", <any>scrollbar_input);
    hScrollbar = <any>document.getElementById("horizontalGridScrollbar");
-   hScrollbar.addEventListener("scrollbar-input", <any>scrollbarInputEventHandler);
+   hScrollbar.addEventListener("scrollbar-input", <any>scrollbar_input);
    const containerElement = document.getElementById("gridContainer")!;
-   containerElement.addEventListener("wheel", mouseWheelEventHandler);
+   containerElement.addEventListener("wheel", container_wheel);
+   containerElement.addEventListener("keydown", container_keydown);
    viewportPosition = topLeftPosition;
-   scroll(vScrollbar, ScrollUnit.absPosition, 0);
-   scroll(hScrollbar, ScrollUnit.absPosition, 0);
-   renderGrid(); }
+   document.getElementById("appParms")!.addEventListener("change", appParms_change);
+   processAppParms();
+   containerElement.focus(); }
 
 async function startup() {
    try {
       init(); }
     catch (e) {
       console.log(e);
-      alert("Error: " + e); }}
+      alert(e); }}
 
 document.addEventListener("DOMContentLoaded", startup);
