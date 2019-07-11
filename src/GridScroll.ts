@@ -40,7 +40,7 @@ export interface OutputParms {
    scrollbarThumbSize:       number; }                     // scrollbar thumb size relative to the trough, float value in the range 0..1
 
 export function process (ip: InputParms) : OutputParms {
-   if (ip.elementCount <= 0 || ip.viewportSize <= 0) {
+   if (ip.elementCount <= 1 || ip.viewportSize <= 0) {
       return {topNdx: 0, scrollbarPosition: 0, scrollbarThumbSize: 0}; }
    let topNdx: number;
    switch (ip.scrollUnit) {
