@@ -30,6 +30,8 @@ var viewportPosition:        ViewportPosition;
 var rowHeights:              Int16Array;
 var colWidths:               Int16Array;
 var macroCellHeights:        Int16Array;
+var renderRequested:         boolean = false;
+var animationFrameRequestId: number = 0;
 
 function getAppParms() {
    const ap = <AppParms>{};
@@ -127,7 +129,22 @@ function renderGrid() {
       measure,
       prepareCell,
       viewportPosition};
-   controller.render(renderParms); }
+   controller.render(renderParms);
+   renderRequested = false; }
+
+function requestRender() {
+   renderRequested = true;
+   scheduleAnimationFrame(); }
+
+function animationFrameHandler() {
+   animationFrameRequestId = 0;
+   if (renderRequested) {
+      renderGrid(); }}
+
+function scheduleAnimationFrame() {
+   if (animationFrameRequestId) {
+      return; }
+   animationFrameRequestId = requestAnimationFrame(animationFrameHandler); }
 
 function scroll (scrollbar: Scrollbar, scrollUnit: ScrollUnit, scrollValue: number) {
    const orientation = scrollbar.orientationBoolean;
@@ -148,7 +165,7 @@ function scroll (scrollbar: Scrollbar, scrollUnit: ScrollUnit, scrollValue: numb
 
 function scrollAndRender (scrollbar: Scrollbar, scrollUnit: ScrollUnit, scrollValue: number) {
    scroll(scrollbar, scrollUnit, scrollValue);
-   renderGrid(); }
+   requestRender(); }
 
 function scrollbar_input (this: Scrollbar, event: CustomEvent) {
    const scrollbar = this;
@@ -221,7 +238,7 @@ function processAppParms() {
    buildGridData();
    scroll(vScrollbar, ScrollUnit.absPosition, 0);
    scroll(hScrollbar, ScrollUnit.absPosition, 0);
-   renderGrid(); }
+   requestRender(); }
 
 function appParms_change() {
    try {
