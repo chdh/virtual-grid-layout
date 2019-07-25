@@ -55,7 +55,7 @@ input[type="text"]:focus, input[type="number"]:focus, select:focus, canvas:focus
    border: 1px solid yellow;
    outline: none; }
 
-#gridRoot {
+#gridViewport {
    box-sizing: border-box;
    position: absolute;
    overflow: hidden;
@@ -103,3 +103,7 @@ input[type="text"]:focus, input[type="number"]:focus, select:focus, canvas:focus
 
 .footer {
    margin-top: 15px; }
+
+/* for debugging only:
+.virtual-grid-layout-gridResizeHandle {
+   background-color: rgba(255, 255, 0, 0.4); } */

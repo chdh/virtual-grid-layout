@@ -31,6 +31,6 @@
       "no-irregular-whitespace": true,
       "semicolon": [true, "always", "ignore-bound-class-methods"],
       "type-literal-delimiter": true,
-      "variable-name": [true, "ban-keywords", "check-format", "allow-leading-underscore"]
+      "variable-name": [true, "ban-keywords", "check-format", "allow-leading-underscore", "allow-snake-case"]
    }
 }

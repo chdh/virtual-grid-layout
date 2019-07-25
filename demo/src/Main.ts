@@ -1,9 +1,11 @@
 // Demo application for the virtual grid layout module.
 
 import * as GridLayout from "virtual-grid-layout/GridLayout";
-import {ViewportPosition, CellType} from "virtual-grid-layout/GridLayout";
+import {LayoutController, ViewportPosition, CellType} from "virtual-grid-layout/GridLayout";
 import * as GridScroll from "virtual-grid-layout/GridScroll";
 import {ScrollUnit} from "virtual-grid-layout/GridScroll";
+import * as GridResize from "virtual-grid-layout/GridResize";
+import {ResizeController} from "virtual-grid-layout/GridResize";
 import * as PlainScrollbar from "plain-scrollbar";
 import {PlainScrollbar as Scrollbar} from "plain-scrollbar";
 import * as Utils from "./Utils";
@@ -22,8 +24,9 @@ interface AppParms {
 const topLeftPosition:       ViewportPosition = {rowNdx: 0, colNdx: 0, rowPixelOffset: 0, colPixelOffset: 0};
 
 var appParms:                AppParms;
-var controller:              GridLayout.Controller;
-var gridRootElement:         HTMLElement;
+var layoutController:        LayoutController;
+var resizeController:        ResizeController;
+var gridViewportElement:     HTMLElement;
 var vScrollbar:              Scrollbar;
 var hScrollbar:              Scrollbar;
 var viewportPosition:        ViewportPosition;
@@ -65,40 +68,6 @@ function getCellColor (rowNdx: number, colNdx: number) : string {
    const colorTone = colNdx % 8;
    return "rgb(" + (colorTone & 1 ? colorMax : colorMin) + "," + (colorTone & 2 ? colorMax : colorMin) + "," + (colorTone & 4 ? colorMax : colorMin) + ")"; } // tslint:disable-line:no-bitwise
 
-function scanDistance (a: Int16Array, startNdx: number, distance: number) : {ndx: number; distance: number} {
-   let i = startNdx;
-   let d = 0;
-   while (d < distance && i < a.length) {
-      d += a[i++]; }
-   return {ndx: i, distance: d}; }
-
-function scanDistanceReverse (a: Int16Array, startNdx: number, distance: number) : {ndx: number; distance: number} {
-   let i = startNdx;
-   let d = 0;
-   while (d < distance && i > 0) {
-      d += a[--i]; }
-   return {ndx: i, distance: d}; }
-
-function measure (startNdx: number, distance: number, orientation: boolean) : GridLayout.MeasureResult {
-   const a = orientation ? rowHeights : colWidths;
-   let topNdx: number;
-   let bottomNdx: number;
-   let distance2: number;
-   if (distance >= 0) {
-      const r = scanDistance(a, startNdx, distance);
-      topNdx = startNdx;
-      bottomNdx = r.ndx;
-      distance2 = r.distance; }
-    else {
-      const r = scanDistanceReverse(a, startNdx, -distance);
-      topNdx = r.ndx;
-      bottomNdx = startNdx;
-      distance2 = r.distance; }
-   return {
-      sizes:      a.subarray(topNdx, bottomNdx),
-      macroSizes: orientation ? macroCellHeights.subarray(topNdx, bottomNdx) : undefined,
-      distance:   distance2 }; }
-
 function positionCell (cell: HTMLElement, rect: GridLayout.Rect) {
    const style = cell.style;
    style.left   = rect.x      + "px";
@@ -126,10 +95,12 @@ function prepareCell (cellType: CellType, rowNdx: number, colNdx: number, rect: 
 
 function renderGrid() {
    const renderParms : GridLayout.RenderParms = {
-      measure,
-      prepareCell,
-      viewportPosition};
-   controller.render(renderParms);
+      viewportPosition,
+      rowHeights,
+      colWidths,
+      macroCellHeights,
+      prepareCell };
+   layoutController.render(renderParms);
    renderRequested = false; }
 
 function requestRender() {
@@ -153,8 +124,8 @@ function scroll (scrollbar: Scrollbar, scrollUnit: ScrollUnit, scrollValue: numb
       scrollValue,
       topNdx:       orientation ? viewportPosition.rowNdx : viewportPosition.colNdx,
       elementCount: orientation ? appParms.rowCount : appParms.colCount,
-      viewportSize: orientation ? gridRootElement.clientHeight : gridRootElement.clientWidth,
-      measure: (startNdx: number, distance: number) => measure(startNdx, distance, orientation) };
+      viewportSize: orientation ? gridViewportElement.clientHeight : gridViewportElement.clientWidth,
+      elementSizes: orientation ? rowHeights : colWidths };
    const r = GridScroll.process(ip);
    if (orientation) {
       viewportPosition.rowNdx = r.topNdx; }
@@ -233,6 +204,20 @@ function container_keydown (event: KeyboardEvent) {
       event.stopPropagation();
       event.preventDefault(); }}
 
+function resizeController_elementResize (event: CustomEvent) {
+   const d = event.detail;
+   if (d.orientation) {
+      if (d.ndx < 0 || d.ndx >= rowHeights.length) {
+         return; }
+      rowHeights[d.ndx] = d.size;
+      macroCellHeights[d.ndx] = Math.min(d.size, macroCellHeights[d.ndx]); }
+    else {
+      if (d.ndx < 0 || d.ndx >= colWidths.length) {
+         return; }
+      colWidths[d.ndx] = d.size; }
+   const scrollbar = d.orientation ? vScrollbar : hScrollbar;
+   scrollAndRender(scrollbar, ScrollUnit.none, 0); }
+
 function processAppParms() {
    getAppParms();
    buildGridData();
@@ -247,8 +232,18 @@ function appParms_change() {
       alert(e); }}
 
 function init() {
-   gridRootElement = document.getElementById("gridRoot")!;
-   controller = new GridLayout.Controller(gridRootElement);
+   gridViewportElement = document.getElementById("gridViewport")!;
+   layoutController = new LayoutController(gridViewportElement);
+   const resizeControllerParms: GridResize.ControllerParms = {
+      layoutController,
+      rowSizingEnabled: true,
+      colSizingEnabled: true,
+      topWidth: 6,
+      bottomWidth: 5,
+      leftWidth: 6,
+      rightWidth: 5 };
+   resizeController = new ResizeController(resizeControllerParms);
+   resizeController.addEventListener("element-resize", <EventListener>resizeController_elementResize);
    PlainScrollbar.registerCustomElement();
    vScrollbar = <any>document.getElementById("verticalGridScrollbar");
    vScrollbar.addEventListener("scrollbar-input", <any>scrollbar_input);
