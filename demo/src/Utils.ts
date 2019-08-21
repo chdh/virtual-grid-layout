@@ -1,12 +1,3 @@
-export function genKeyName (event: KeyboardEvent) : string {
-   const s =
-      (event.shiftKey ? "Shift-" : "") +
-      (event.ctrlKey  ? "Ctrl-"  : "") +
-      (event.altKey   ? "Alt-"   : "") +
-      (event.metaKey  ? "Meta-"  : "") +
-      event.key;
-   return s; }
-
 function getInputElement (elementId: string) : HTMLInputElement {
    const e = <HTMLInputElement>document.getElementById(elementId);
    if (!e) {

@@ -4,19 +4,14 @@
 // Macro cells are positioned below the regular cells of a row and can be used e.g. for sub-grids.
 export const enum CellType {regular, macro}
 
-// Position and dimension of a cell element, in pixels.
-export interface Rect {
-   x:                                  number;
-   y:                                  number;
-   width:                              number;
-   height:                             number; }
-
 // A viewport position of the grid.
 export interface ViewportPosition {
    rowNdx:                             number;                       // index of first visible row, 0-based integer
    colNdx:                             number;                       // index of first visible column, 0-based integer
    rowPixelOffset:                     number;                       // vertical pixel offset within first visible row, integer in range 0..rowHeight-1
    colPixelOffset:                     number; }                     // horizontal pixel offset within first visible column, integer in range 0..colWidth-1
+
+export const topLeftViewportPosition: Readonly<ViewportPosition> = {rowNdx: 0, colNdx: 0, rowPixelOffset: 0, colPixelOffset: 0};
 
 // Function to measure undetermined row heights or column widths.
 //
@@ -40,14 +35,16 @@ export type MeasureFunction = (startNdx: number, n: number, orientation: boolean
 // @param colNdx
 //    The column index of the cell.
 //    This parameter is ignored if `cellType` is `macro`.
-// @param rect
-//    The pixel position and dimension for the cell.
+// @param width
+//    The width of the cell in pixels. Can be ignored.
+// @param height
+//    The height of the cell in pixels. Can be ignored.
 // @param oldCell
 //    An old cell element with the same `rowNdx`/`colNdx`, that can be reused.
 // @returns
 //    A prepared cell element that can be added to the grid.
 //    If an `oldElement` is passed and the returned element is not the same, the `oldElement` is released.
-export type PrepareCellFunction = (cellType: CellType, rowNdx: number, colNdx: number, rect: Rect, oldCell: HTMLElement | undefined) => HTMLElement;
+export type PrepareCellFunction = (cellType: CellType, rowNdx: number, colNdx: number, width: number, height: number, oldCell: HTMLElement | undefined) => HTMLElement;
 
 // This function is called when cells are no longer used.
 export type ReleaseCellFunction = (cell: HTMLElement) => void;
@@ -56,7 +53,9 @@ export interface RenderParms {                                       // paramete
    viewportPosition:                   ViewportPosition;             // grid viewport position
    rowHeights:                         Int16Array;                   // row heights of the grid, may contain -1 for undetermined heights
    colWidths:                          Int16Array;                   // column widths of the grid, may contain -1 for undetermined widths
-   macroCellHeights?:                  Int16Array;                   // macro cell heights of the grid, 0 = no macro cell
+   macroCellHeights?:                  Int16Array;                   // macro cell heights, 0 = no macro cell
+   macroCellWidth:                     number;                       // width of the macro cells in pixels
+   vCellOverlap:                       number;                       // vertical cell overlap in pixels
    measure?:                           MeasureFunction;              // function to measure undetermined row heights or column widths
    prepareCell:                        PrepareCellFunction;          // function to create and/or prepare grid cells
    releaseCell?:                       ReleaseCellFunction; }        // function to release cells that are no longer in use
@@ -106,12 +105,12 @@ export class LayoutController extends EventTarget {
       this.dispatchEvent(new Event("clear")); }
 
    private initRender (rp: RenderParms, rs: RenderedState) {
-      rs.viewportPosition = {...rp.viewportPosition};      // (clone to be sure that it will not change)
+      rs.viewportPosition = {...rp.viewportPosition};
       // Get viewport size.
       rs.viewportHeight = this.viewportElement.clientHeight;
       rs.viewportWidth = this.viewportElement.clientWidth;
       // Determine visible rows+columns.
-      const pos = rp.viewportPosition;
+      const pos = rs.viewportPosition;
       if (pos.rowNdx < 0 || pos.colNdx < 0 || !Number.isInteger(pos.rowNdx) || !Number.isInteger(pos.colNdx) || pos.rowPixelOffset < 0 || pos.colPixelOffset < 0) {
          throw new Error("Invalid viewport position."); }
       const bottomRowNdx = scanDistance(rp.rowHeights, pos.rowNdx, pos.rowPixelOffset + rs.viewportHeight, rp.measure, true);
@@ -122,9 +121,11 @@ export class LayoutController extends EventTarget {
       rs.visibleMacroCellHeights = rp.macroCellHeights ? rp.macroCellHeights.slice(pos.rowNdx, bottomRowNdx) : undefined;  // (clone to preserve current values)
       rs.visibleColWidths = rp.colWidths.slice(pos.colNdx, rightColNdx);                                                   // (clone to preserve current values)
       if (rs.visibleRows > 0 && pos.rowPixelOffset > 0 && pos.rowPixelOffset >= rs.visibleRowHeights[0]) {
-          throw new Error("Row pixel offset exceeds height of first visible row."); }
+          console.log("Warning: Row pixel offset exceeds height of first visible row.");
+          pos.rowPixelOffset = 0; }
       if (rs.visibleCols > 0 && pos.colPixelOffset > 0 && pos.colPixelOffset >= rs.visibleColWidths[0]) {
-          throw new Error("Column pixel offset exceeds width of first visible column."); }
+          console.log("Warning: Column pixel offset exceeds width of first visible column.");
+          pos.colPixelOffset = 0; }
       rs.rowYPositions = integrateSizes(-pos.rowPixelOffset, rs.visibleRowHeights);
       rs.colXPositions = integrateSizes(-pos.colPixelOffset, rs.visibleColWidths);
       // Prepare cell containers.
@@ -134,6 +135,11 @@ export class LayoutController extends EventTarget {
          this.cellContainerElement.innerHTML = ""; }
        else {
          this.cellContainerElement = document.createElement("div");
+         const style = this.cellContainerElement.style;
+         style.position = "relative";
+         style.height = "100%";
+         style.overflow = "hidden";
+         (<any>style).contain = "content";                           // ? (for faster layout)
          this.viewportElement.appendChild(this.cellContainerElement); }
       this.renderedState = rs; }
 
@@ -169,30 +175,38 @@ export class LayoutController extends EventTarget {
 
    private renderCell (rp: RenderParms, rs: RenderedState, oldRs: RenderedState | undefined, cellType: CellType, rowNdx: number, colNdx: number, relRowNdx: number, relColNdx: number) : HTMLElement | undefined {
       const rowHeight = rs.visibleRowHeights[relRowNdx];
-      const macroCellHeight = rs.visibleMacroCellHeights ? rs.visibleMacroCellHeights[relRowNdx] : 0;
-      const cellRect = <Rect>{};
+      const macroCellHeight = rs.visibleMacroCellHeights ? Math.min(rs.visibleMacroCellHeights[relRowNdx], rowHeight) : 0;
+      let x: number;
+      let y0: number;
+      let width: number;
+      let height0: number;
       let oldCells: CellRectMap | undefined;
       switch (cellType) {
          case CellType.regular: {
-            cellRect.height = rowHeight - macroCellHeight;
-            cellRect.width = rs.visibleColWidths[relColNdx];
-            cellRect.y = rs.rowYPositions[relRowNdx];
-            cellRect.x = rs.colXPositions[relColNdx];
+            x = rs.colXPositions[relColNdx];
+            y0 = rs.rowYPositions[relRowNdx];
+            width = rs.visibleColWidths[relColNdx];
+            height0 = rowHeight - macroCellHeight;
             oldCells = oldRs ? oldRs.regularCells : undefined;
             break; }
          case CellType.macro: {
-            cellRect.height = macroCellHeight;
-            cellRect.width = rs.viewportWidth;
-            cellRect.y = rs.rowYPositions[relRowNdx] + rowHeight - macroCellHeight;
-            cellRect.x = 0;
+            x = 0;
+            y0 = rs.rowYPositions[relRowNdx] + rowHeight - macroCellHeight;
+            width = rp.macroCellWidth;
+            height0 = macroCellHeight;
             oldCells = oldRs ? oldRs.macroCells : undefined;
-            break; }}
-      if (cellRect.height <= 0 || cellRect.width <= 0) {
+            break; }
+         default: {
+            throw new Error("Unexpected cell type."); }}
+      if (width <= 0 || height0 <= 0) {
          return; }
+      const y = y0 - rp.vCellOverlap;
+      const height = height0 + rp.vCellOverlap;
       const oldCell = oldCells ? oldCells.get(rowNdx, colNdx) : undefined;
-      const cell = rp.prepareCell(cellType, rowNdx, colNdx, cellRect, oldCell);
+      const cell = rp.prepareCell(cellType, rowNdx, colNdx, width, height, oldCell);
       if (oldCell && cell != oldCell) {
          oldCells!.delete(rowNdx, colNdx); }                         // if old cell has been re-used, delete from map
+      positionCell(cell, x, y, width, height);
       return cell; }}
 
 function integrateSizes (startPos: number, sizes: Int16Array) : Int16Array {
@@ -258,3 +272,13 @@ export class CellRectMap {
       return this.a[i]; }
    public getAll() {
       return this.a; }}
+
+function positionCell (cell: HTMLElement, x: number, y: number, width: number, height: number) {
+   const style = cell.style;
+   style.position  = "absolute";
+   style.boxSizing = "border-box";
+   style.overflow  = "hidden";
+   style.left      = x      + "px";
+   style.top       = y      + "px";
+   style.width     = width  + "px";
+   style.height    = height + "px"; }

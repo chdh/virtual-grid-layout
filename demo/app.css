@@ -26,7 +26,7 @@ input[type="number"] {
 input[type="text"]:invalid:not(:focus), input[type="number"]:invalid:not(:focus) {
    box-shadow: 0 0 1px 1px #f00; }
 
-input[type="text"]:focus, input[type="number"]:focus, select:focus, canvas:focus {
+input[type="text"]:focus, input[type="number"]:focus, select:focus {
    outline: 1px auto #4D90FE; }
 
 .parmBlock {
@@ -58,12 +58,12 @@ input[type="text"]:focus, input[type="number"]:focus, select:focus, canvas:focus
 #gridViewport {
    box-sizing: border-box;
    position: absolute;
-   overflow: hidden;
    left: 0;
    top: 0;
    right: 15px;
    bottom: 15px;
-   border: 1px solid blue; }
+   border: 1px solid blue;
+   background: #fdfdfd; }
 
 #verticalGridScrollbar {
    display: block;
@@ -72,8 +72,7 @@ input[type="text"]:focus, input[type="number"]:focus, select:focus, canvas:focus
    right: 0;
    top: 0;
    bottom: 15px;
-   width: 15px;
-   --plain-scrollbar-thumb-min-size: 25px; }
+   width: 15px; }
 
 #horizontalGridScrollbar {
    display: block;
@@ -82,22 +81,18 @@ input[type="text"]:focus, input[type="number"]:focus, select:focus, canvas:focus
    left: 0;
    bottom: 0;
    right: 15px;
-   height: 15px;
-   --plain-scrollbar-thumb-min-size: 25px; }
+   height: 15px; }
 
 .gridCell {
-   position: absolute;
-   box-sizing: border-box;
-   overflow: hidden;
    padding: 4px;
-   border-right: 1px solid red;
+   border-top: 1px solid green;
+   border-right: 1px solid green;
    border-bottom: 1px solid green; }
 
 .macroCell {
-   position: absolute;
-   box-sizing: border-box;
-   overflow: hidden;
    padding: 4px;
+   border-top: 1px solid green;
+   border-right: 1px solid green;
    border-bottom: 1px solid green;
    background-color: #FFFFEE; }
 

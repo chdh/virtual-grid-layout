@@ -1,4 +1,4 @@
-// Demo application for the virtual grid layout module.
+// Demo application for the virtual-grid-layout module.
 
 import * as GridLayout from "virtual-grid-layout/GridLayout";
 import {LayoutController, ViewportPosition, CellType} from "virtual-grid-layout/GridLayout";
@@ -6,6 +6,7 @@ import * as GridScroll from "virtual-grid-layout/GridScroll";
 import {ScrollUnit} from "virtual-grid-layout/GridScroll";
 import * as GridResize from "virtual-grid-layout/GridResize";
 import {ResizeController} from "virtual-grid-layout/GridResize";
+import * as GridUtils from "virtual-grid-layout/GridUtils";
 import * as PlainScrollbar from "plain-scrollbar";
 import {PlainScrollbar as Scrollbar} from "plain-scrollbar";
 import * as Utils from "./Utils";
@@ -19,9 +20,8 @@ interface AppParms {
    colWidthHi:               number;
    macroCellRate:            number;
    macroCellHeightLo:        number;
-   macroCellHeightHi:        number; }
-
-const topLeftPosition:       ViewportPosition = {rowNdx: 0, colNdx: 0, rowPixelOffset: 0, colPixelOffset: 0};
+   macroCellHeightHi:        number;
+   macroCellWidth:           number; }
 
 var appParms:                AppParms;
 var layoutController:        LayoutController;
@@ -47,6 +47,7 @@ function getAppParms() {
    ap.macroCellRate     = Utils.getInputElementValueNum("macroCellRate");
    ap.macroCellHeightLo = Utils.getInputElementValueNum("macroCellHeightLo");
    ap.macroCellHeightHi = Utils.getInputElementValueNum("macroCellHeightHi");
+   ap.macroCellWidth    = Utils.getInputElementValueNum("macroCellWidth");
    appParms = ap; }
 
 function randomSize (lo: number, hi: number) : number {
@@ -68,19 +69,10 @@ function getCellColor (rowNdx: number, colNdx: number) : string {
    const colorTone = colNdx % 8;
    return "rgb(" + (colorTone & 1 ? colorMax : colorMin) + "," + (colorTone & 2 ? colorMax : colorMin) + "," + (colorTone & 4 ? colorMax : colorMin) + ")"; } // tslint:disable-line:no-bitwise
 
-function positionCell (cell: HTMLElement, rect: GridLayout.Rect) {
-   const style = cell.style;
-   style.left   = rect.x      + "px";
-   style.top    = rect.y      + "px";
-   style.width  = rect.width  + "px";
-   style.height = rect.height + "px"; }
-
-function prepareCell (cellType: CellType, rowNdx: number, colNdx: number, rect: GridLayout.Rect, oldCell: HTMLElement | undefined) : HTMLElement {
+function prepareCell (cellType: CellType, rowNdx: number, colNdx: number, _width: number, _height: number, oldCell: HTMLElement | undefined) : HTMLElement {
    if (oldCell) {
-      positionCell(oldCell, rect);
       return oldCell; }
    const cell = document.createElement("div");
-   positionCell(cell, rect);
    switch (cellType) {
       case CellType.regular: {
          cell.className = "gridCell";
@@ -99,6 +91,8 @@ function renderGrid() {
       rowHeights,
       colWidths,
       macroCellHeights,
+      macroCellWidth: appParms.macroCellWidth,
+      vCellOverlap: 1,
       prepareCell };
    layoutController.render(renderParms);
    renderRequested = false; }
@@ -117,8 +111,7 @@ function scheduleAnimationFrame() {
       return; }
    animationFrameRequestId = requestAnimationFrame(animationFrameHandler); }
 
-function scroll (scrollbar: Scrollbar, scrollUnit: ScrollUnit, scrollValue: number) {
-   const orientation = scrollbar.orientationBoolean;
+function scroll (orientation: boolean, scrollUnit: ScrollUnit, scrollValue: number) {
    const ip = {
       scrollUnit,
       scrollValue,
@@ -131,98 +124,49 @@ function scroll (scrollbar: Scrollbar, scrollUnit: ScrollUnit, scrollValue: numb
       viewportPosition.rowNdx = r.topNdx; }
     else {
       viewportPosition.colNdx = r.topNdx; }
+   const scrollbar = orientation ? vScrollbar : hScrollbar;
    scrollbar.value = r.scrollbarPosition;
    scrollbar.thumbSize = r.scrollbarThumbSize; }
 
-function scrollAndRender (scrollbar: Scrollbar, scrollUnit: ScrollUnit, scrollValue: number) {
-   scroll(scrollbar, scrollUnit, scrollValue);
-   requestRender(); }
-
 function scrollbar_input (this: Scrollbar, event: CustomEvent) {
    const scrollbar = this;
-   // console.log("Scrollbar event " + event.detail + " " + scrollbar.value + " " + scrollbar.orientationBoolean);
-   switch (event.detail) {
-      case "value": {
-         scrollAndRender(scrollbar, ScrollUnit.propPosition, scrollbar.value);
-         break; }
-      case "decrementSmall": {
-         scrollAndRender(scrollbar, ScrollUnit.smallIncr, -1);
-         break; }
-      case "incrementSmall": {
-         scrollAndRender(scrollbar, ScrollUnit.smallIncr, 1);
-         break; }
-      case "decrementLarge": {
-         scrollAndRender(scrollbar, ScrollUnit.largeIncr, -1);
-         break; }
-      case "incrementLarge": {
-         scrollAndRender(scrollbar, ScrollUnit.largeIncr, 1);
-         break; }}}
+   const r = GridUtils.convertPlainScrollbarInputEvent(event);
+   if (!r) {
+      return; }
+   scroll(scrollbar.orientationBoolean, r.scrollUnit, r.scrollValue);
+   requestRender(); }
 
 function container_wheel (event: WheelEvent) {
-   scrollAndRender(vScrollbar, ScrollUnit.mediumIncr, Math.sign(event.deltaY));
+   scroll(true, ScrollUnit.mediumIncr, Math.sign(event.deltaY));
+   requestRender();
    event.stopPropagation();
    event.preventDefault(); }
 
-function processKey (event: KeyboardEvent) {
-   const keyName = Utils.genKeyName(event);
-   switch (keyName) {
-      case "PageDown": {
-         scrollAndRender(vScrollbar, ScrollUnit.largeIncr, 1);
-         return true; }
-      case "PageUp": {
-         scrollAndRender(vScrollbar, ScrollUnit.largeIncr, -1);
-         return true; }
-      case "ArrowDown": {
-         scrollAndRender(vScrollbar, ScrollUnit.smallIncr, 1);
-         return true; }
-      case "ArrowUp": {
-         scrollAndRender(vScrollbar, ScrollUnit.smallIncr, -1);
-         return true; }
-      case "ArrowRight": {
-         scrollAndRender(hScrollbar, ScrollUnit.smallIncr, 1);
-         return true; }
-      case "ArrowLeft": {
-         scrollAndRender(hScrollbar, ScrollUnit.smallIncr, -1);
-         return true; }
-      case "Home": {
-         scrollAndRender(hScrollbar, ScrollUnit.propPosition, 0);
-         return true; }
-      case "End": {
-         scrollAndRender(hScrollbar, ScrollUnit.propPosition, 1);
-         return true; }
-      case "Ctrl-Home": {
-         scrollAndRender(vScrollbar, ScrollUnit.propPosition, 0);
-         return true; }
-      case "Ctrl-End": {
-         scrollAndRender(vScrollbar, ScrollUnit.propPosition, 1);
-         return true; }
-      default: {
-         return false; }}}
-
 function container_keydown (event: KeyboardEvent) {
-   if (processKey(event)) {
-      event.stopPropagation();
-      event.preventDefault(); }}
+   const r = GridUtils.convertKeyboardEvent(event);
+   if (!r) {
+      return; }
+   scroll(r.orientation, r.scrollUnit, r.scrollValue);
+   requestRender();
+   event.stopPropagation();
+   event.preventDefault(); }
 
 function resizeController_elementResize (event: CustomEvent) {
    const d = event.detail;
-   if (d.orientation) {
-      if (d.ndx < 0 || d.ndx >= rowHeights.length) {
-         return; }
-      rowHeights[d.ndx] = d.size;
-      macroCellHeights[d.ndx] = Math.min(d.size, macroCellHeights[d.ndx]); }
-    else {
-      if (d.ndx < 0 || d.ndx >= colWidths.length) {
-         return; }
-      colWidths[d.ndx] = d.size; }
-   const scrollbar = d.orientation ? vScrollbar : hScrollbar;
-   scrollAndRender(scrollbar, ScrollUnit.none, 0); }
+   const sizes = d.orientation ? rowHeights : colWidths;
+   if (d.ndx < 0 || d.ndx >= sizes.length) {
+      return; }
+   sizes[d.ndx] = d.size;
+// if (d.orientation) {
+//    macroCellHeights[d.ndx] = Math.min(d.size, macroCellHeights[d.ndx]); }
+   scroll(d.orientation, ScrollUnit.none, 0);
+   requestRender(); }
 
 function processAppParms() {
    getAppParms();
    buildGridData();
-   scroll(vScrollbar, ScrollUnit.absPosition, 0);
-   scroll(hScrollbar, ScrollUnit.absPosition, 0);
+   scroll(true, ScrollUnit.absPosition, 0);
+   scroll(false, ScrollUnit.absPosition, 0);
    requestRender(); }
 
 function appParms_change() {
@@ -236,12 +180,12 @@ function init() {
    layoutController = new LayoutController(gridViewportElement);
    const resizeControllerParms: GridResize.ControllerParms = {
       layoutController,
-      rowSizingEnabled: true,
-      colSizingEnabled: true,
-      topWidth: 6,
-      bottomWidth: 5,
-      leftWidth: 6,
-      rightWidth: 5 };
+      rowSizingEnabled:     true,
+      colSizingEnabled:     true,
+      rowSizingTopWidth:    6,
+      rowSizingBottomWidth: 5,
+      colSizingLeftWidth:   6,
+      colSizingRightWidth:  5 };
    resizeController = new ResizeController(resizeControllerParms);
    resizeController.addEventListener("element-resize", <EventListener>resizeController_elementResize);
    PlainScrollbar.registerCustomElement();
@@ -252,7 +196,7 @@ function init() {
    const containerElement = document.getElementById("gridContainer")!;
    containerElement.addEventListener("wheel", container_wheel);
    containerElement.addEventListener("keydown", container_keydown);
-   viewportPosition = topLeftPosition;
+   viewportPosition = {...GridLayout.topLeftViewportPosition};
    document.getElementById("appParms")!.addEventListener("change", appParms_change);
    processAppParms();
    containerElement.focus(); }
