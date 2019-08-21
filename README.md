@@ -1,4 +1,4 @@
-# Virtual grid layout controller
+# virtual-grid-layout - A Virtual grid layout controller
 
 This module provides a virtual grid layout controller for HTML/DOM.
 
